@@ -1,0 +1,8 @@
+name: expy
+channels:
+- conda-forge
+dependencies:
+- numpy
+- pytorch
+- python=3.8
+- pip
