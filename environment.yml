@@ -1,4 +1,4 @@
-name: expy
+name: exptorch
 channels:
 - conda-forge
 dependencies:
