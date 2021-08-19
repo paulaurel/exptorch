@@ -14,4 +14,20 @@ jobs:
       - name: create conda environment
         run: |
           conda env create --file environment.yml --name test --force
-          conda activate test
+          pip install .[dev]
+
+      - name: codespell
+        run: |
+          codespell .
+
+      - name: flake8
+        run: |
+          flake8 --count setup.py exptorch/ tests/
+
+      - name: black
+        run: |
+          black --check .
+
+      - name: pytest
+        run: |
+          pytest tests
