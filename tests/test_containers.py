@@ -1,7 +1,7 @@
 import pytest
 from copy import deepcopy
 
-from exptorch.containers import Struct
+from exptorch import Struct
 
 STRUCT = Struct(a=1, b=2, c=3)
 KEYS, VALUES = ["a", "b", "c"], [1, 2, 3]
