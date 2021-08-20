@@ -1,7 +1,7 @@
 class Struct(dict):
-    """Container object exposing keys as attributes.
+    """Dictionary like container object exposing keys as attributes.
 
-    The Struct enables values to be accessed both via __getitem__,
+    The Struct container enables values to be accessed both via __getitem__,
     i.e. by key, and via __getattr__, i.e. by attribute.
 
     Examples
