@@ -47,7 +47,9 @@ class Params(Struct):
 
     @property
     def free(self):
-        return Struct({key: self[key] for key in self.keys() if key != self.__base_label})
+        return Struct(
+            {key: self[key] for key in self.keys() if key != self.__base_label}
+        )
 
     def _validate_kwargs(self, kwargs):
         self._validate_kwargs_type(kwargs)
