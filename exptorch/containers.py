@@ -37,38 +37,56 @@ class Struct(dict):
 class Params(Struct):
     """Container object storing fixed and free parameters."""
 
-    __fixed_name = "fixed"
+    __fixed_key_label = "fixed"
 
-    def __init__(self, fixed=None, **kwargs):
+    def __init__(self, fixed=None, **free_params):
         fixed = fixed if fixed is not None else Struct()
-        _validate_type(fixed, required_type=Struct, obj_name=self.__fixed_name)
+        _validate_type(fixed, required_type=Struct, obj_name=self.__fixed_key_label)
         self.fixed = fixed
-        self._validate_kwargs(kwargs)
-        super().__init__(**kwargs)
+
+        self._validate_free_params(free_params)
+        super().__init__(**free_params)
 
     @property
     def free(self):
         return Struct(
-            {key: self[key] for key in self.keys() if key != self.__fixed_name}
+            {key: self[key] for key in self.keys() if key != self.__fixed_key_label}
         )
 
-    def _validate_kwargs(self, kwargs):
-        self._validate_kwargs_type(kwargs)
+    def _validate_free_params(self, free_params):
+        self._validate_free_params_type(free_params)
+        self._validate_free_params_keys(free_params)
 
     @staticmethod
-    def _validate_kwargs_type(kwargs):
-        for key, value in kwargs.items():
+    def _validate_free_params_type(free_params):
+        for key, value in free_params.items():
             _validate_type(value, required_type=list, obj_name=key)
+
+    def _validate_free_params_keys(self, free_params):
+        _intersecting_keys = free_params.keys() & self.fixed.keys()
+        if _intersecting_keys:
+            raise ValueError(
+                "Requires free parameter keys to not intersect with fixed parameter keys."
+                f" Intersecting free parameter keys: {_intersecting_keys}"
+            )
+
+    def is_empty(self):
+        _empty_fixed = len(self.fixed) == 0
+        _empty_free = len(self.free) == 0
+        return _empty_fixed and _empty_free
 
     def expand(self):
         """Expands the free parameters to define all valid parameter combinations.
-        Appends the fixed parameters to the cartesian product of the free parameters.
+        Appends the cartesian product of the free parameters to the fixed parameters.
 
         Returns
         -------
         Generator[Struct]
             Returns generator containing all valid parameter combinations.
         """
+        if self.is_empty():
+            return
+
         _fixed_param_set = deepcopy(self.fixed)
         for _free_param_set in product(*self.free.values()):
             _fixed_param_set.update(zip(self.free.keys(), _free_param_set))
