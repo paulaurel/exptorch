@@ -31,7 +31,11 @@ def test_raise_type_error_for_invalid_free_params(invalid_free_params):
 
 @pytest.mark.parametrize(
     "invalid_free_params",
-    [Struct(a=[3, 4], d=[5, 6]), Struct(c=[3, 4], b=[5, 6]), Struct(a=[3, 4], b=[5, 6])],
+    [
+        Struct(a=[3, 4], d=[5, 6]),
+        Struct(c=[3, 4], b=[5, 6]),
+        Struct(a=[3, 4], b=[5, 6]),
+    ],
 )
 def test_raise_value_error_for_invalid_free_params(invalid_free_params):
     with pytest.raises(ValueError):
