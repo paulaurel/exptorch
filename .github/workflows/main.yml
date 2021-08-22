@@ -31,3 +31,7 @@ jobs:
       - name: pytest
         run: |
           pytest tests
+
+      - name: coverage
+        run: |
+          pytest --cov=exptorch tests
