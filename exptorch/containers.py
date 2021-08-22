@@ -35,20 +35,19 @@ class Struct(dict):
 
 
 class Params(Struct):
+    __fixed_name = "fixed"
 
-    __base_label = "base"
-
-    def __init__(self, base=None, **kwargs):
-        base = base if base is not None else Struct()
-        _validate_type(base, required_type=Struct, obj_name=self.__base_label)
-        self.base = base
+    def __init__(self, fixed=None, **kwargs):
+        fixed = fixed if fixed is not None else Struct()
+        _validate_type(fixed, required_type=Struct, obj_name=self.__fixed_name)
+        self.fixed = fixed
         self._validate_kwargs(kwargs)
         super().__init__(**kwargs)
 
     @property
     def free(self):
         return Struct(
-            {key: self[key] for key in self.keys() if key != self.__base_label}
+            {key: self[key] for key in self.keys() if key != self.__fixed_name}
         )
 
     def _validate_kwargs(self, kwargs):
@@ -59,9 +58,8 @@ class Params(Struct):
         for key, value in kwargs.items():
             _validate_type(value, required_type=list, obj_name=key)
 
-    def flatten(self):
-        _base = deepcopy(self.base)
-        _free_param_keys = self.free.keys()
-        for _updated_params in product(*self.free.values()):
-            _base.update(zip(_free_param_keys, _updated_params))
-            yield Struct(_base)
+    def expand(self):
+        _fixed_param_set = deepcopy(self.fixed)
+        for _free_param_set in product(*self.free.values()):
+            _fixed_param_set.update(zip(self.free.keys(), _free_param_set))
+            yield Struct(_fixed_param_set)
