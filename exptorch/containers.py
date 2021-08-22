@@ -1,3 +1,4 @@
+from typing import Generator
 from itertools import product
 from copy import deepcopy
 
@@ -48,7 +49,7 @@ class Params(Struct):
         super().__init__(**free_params)
 
     @property
-    def free(self):
+    def free(self) -> Struct:
         return Struct(
             {key: self[key] for key in self.keys() if key != self.__fixed_key_label}
         )
@@ -70,12 +71,12 @@ class Params(Struct):
                 f" Intersecting free parameter keys: {_intersecting_keys}"
             )
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         _empty_fixed = len(self.fixed) == 0
         _empty_free = len(self.free) == 0
         return _empty_fixed and _empty_free
 
-    def expand(self):
+    def expand(self) -> Generator:
         """Expands the free parameters to define all valid parameter combinations.
         Appends the cartesian product of the free parameters to the fixed parameters.
 
