@@ -35,6 +35,8 @@ class Struct(dict):
 
 
 class Params(Struct):
+    """Container object storing fixed and free parameters."""
+
     __fixed_name = "fixed"
 
     def __init__(self, fixed=None, **kwargs):
@@ -59,6 +61,14 @@ class Params(Struct):
             _validate_type(value, required_type=list, obj_name=key)
 
     def expand(self):
+        """Expands the free parameters to define all valid parameter combinations.
+        Appends the fixed parameters to the cartesian product of the free parameters.
+
+        Returns
+        -------
+        Generator[Struct]
+            Returns generator containing all valid parameter combinations.
+        """
         _fixed_param_set = deepcopy(self.fixed)
         for _free_param_set in product(*self.free.values()):
             _fixed_param_set.update(zip(self.free.keys(), _free_param_set))
