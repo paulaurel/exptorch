@@ -2,7 +2,7 @@ from typing import Generator
 from itertools import product
 from copy import deepcopy
 
-from .utils.validation import _validate_type
+from .utils.validation import validate_type
 
 
 class Struct(dict):
@@ -38,11 +38,11 @@ class Struct(dict):
 class Params(Struct):
     """Container object storing fixed and free parameters."""
 
-    __fixed_key_label = "fixed"
+    __fixed_key = "fixed"
 
     def __init__(self, fixed=None, **free_params):
         fixed = fixed if fixed is not None else Struct()
-        _validate_type(fixed, required_type=Struct, obj_name=self.__fixed_key_label)
+        validate_type(fixed, required_type=Struct, obj_name=f"{self.__class__.__name__}.{self.__fixed_key}")
         self.fixed = fixed
 
         self._validate_free_params(free_params)
@@ -51,23 +51,23 @@ class Params(Struct):
     @property
     def free(self) -> Struct:
         return Struct(
-            {key: self[key] for key in self.keys() if key != self.__fixed_key_label}
+            {key: self[key] for key in self.keys() if key != self.__fixed_key}
         )
 
     def _validate_free_params(self, free_params):
         self._validate_free_params_type(free_params)
         self._validate_free_params_keys(free_params)
 
-    @staticmethod
-    def _validate_free_params_type(free_params):
+    @classmethod
+    def _validate_free_params_type(cls, free_params):
         for key, value in free_params.items():
-            _validate_type(value, required_type=list, obj_name=key)
+            validate_type(value, required_type=list, obj_name=f"{cls.__name__}.{key}")
 
     def _validate_free_params_keys(self, free_params):
         _intersecting_keys = free_params.keys() & self.fixed.keys()
         if _intersecting_keys:
             raise ValueError(
-                "Requires free parameter keys to not intersect with fixed parameter keys."
+                "Require free parameter keys to not intersect with fixed parameter keys."
                 f" Intersecting free parameter keys: {_intersecting_keys}"
             )
 
