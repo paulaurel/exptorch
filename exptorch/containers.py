@@ -77,18 +77,22 @@ class Params(Struct):
         return _empty_fixed and _empty_free
 
     def expand(self) -> Generator:
-        """Expands the free parameters to define all valid parameter combinations.
-        Appends the cartesian product of the free parameters to the fixed parameters.
+        """Expand free parameters to define all valid parameter combinations.
+        Append the fixed parameters to the cartesian product of the free parameters.
 
         Returns
         -------
         Generator[Struct]
-            Returns generator containing all valid parameter combinations.
+            Return generator of Structs containing all valid parameter combination.
+            Each Struct correspond to a respective parameter combination.
         """
         if self.is_empty():
             return
 
-        _fixed_param_set = deepcopy(self.fixed)
-        for _free_param_set in product(*self.free.values()):
-            _fixed_param_set.update(zip(self.free.keys(), _free_param_set))
-            yield Struct(_fixed_param_set)
+        _base_param_combination = deepcopy(self.fixed)
+        _free_param_combinations = product(*self.free.values())
+
+        for _free_param_combination in _free_param_combinations:
+            _param_combination = Struct(_base_param_combination)
+            _param_combination.update(zip(self.free.keys(), _free_param_combination))
+            yield _param_combination
