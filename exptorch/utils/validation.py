@@ -17,7 +17,9 @@ def validate_type(obj, *, required_type: Union[Type, Tuple], obj_name: str):
     ------
         Raises TypeError if the object does not correspond to the required type.
     """
-    required_type = required_type if isinstance(required_type, tuple) else (required_type,)
+    required_type = (
+        required_type if isinstance(required_type, tuple) else (required_type,)
+    )
 
     if not isinstance(obj, required_type):
         required_type_name = tuple(_type.__name__ for _type in required_type)

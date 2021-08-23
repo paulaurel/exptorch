@@ -42,7 +42,11 @@ class Params(Struct):
 
     def __init__(self, fixed=None, **free_params):
         fixed = fixed if fixed is not None else Struct()
-        validate_type(fixed, required_type=Struct, obj_name=f"{self.__class__.__name__}.{self.__fixed_key}")
+        validate_type(
+            obj=fixed,
+            required_type=Struct,
+            obj_name=f"{self.__class__.__name__}.{self.__fixed_key}",
+        )
         self.fixed = fixed
 
         self._validate_free_params(free_params)
