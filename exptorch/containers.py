@@ -1,3 +1,10 @@
+from typing import Generator
+from itertools import product
+from copy import deepcopy
+
+from .utils.validation import validate_type
+
+
 class Struct(dict):
     """Dictionary like container object exposing keys as attributes.
 
@@ -26,3 +33,70 @@ class Struct(dict):
 
     def __setattr__(self, key, value):
         self[key] = value
+
+
+class Params(Struct):
+    """Container object storing fixed and free parameters."""
+
+    __fixed_key = "fixed"
+
+    def __init__(self, fixed=None, **free_params):
+        fixed = fixed if fixed is not None else Struct()
+        validate_type(
+            obj=fixed,
+            required_type=Struct,
+            obj_name=f"{self.__class__.__name__}.{self.__fixed_key}",
+        )
+        self.fixed = fixed
+
+        self._validate_free_params(free_params)
+        super().__init__(**free_params)
+
+    @property
+    def free(self) -> Struct:
+        return Struct(
+            {key: self[key] for key in self.keys() if key != self.__fixed_key}
+        )
+
+    def _validate_free_params(self, free_params):
+        self._validate_free_params_type(free_params)
+        self._validate_free_params_keys(free_params)
+
+    @classmethod
+    def _validate_free_params_type(cls, free_params):
+        for key, value in free_params.items():
+            validate_type(value, required_type=list, obj_name=f"{cls.__name__}.{key}")
+
+    def _validate_free_params_keys(self, free_params):
+        _intersecting_keys = free_params.keys() & self.fixed.keys()
+        if _intersecting_keys:
+            raise ValueError(
+                "Require free parameter keys to not intersect with fixed parameter keys."
+                f" Intersecting free parameter keys: {_intersecting_keys}"
+            )
+
+    def is_empty(self) -> bool:
+        _empty_fixed = len(self.fixed) == 0
+        _empty_free = len(self.free) == 0
+        return _empty_fixed and _empty_free
+
+    def expand(self) -> Generator:
+        """Expand free parameters to define all valid parameter combinations.
+        Append the fixed parameters to the cartesian product of the free parameters.
+
+        Returns
+        -------
+        Generator[Struct]
+            Return generator of Structs containing all valid parameter combination.
+            Each Struct correspond to a respective parameter combination.
+        """
+        if self.is_empty():
+            return
+
+        _base_param_combination = deepcopy(self.fixed)
+        _free_param_combinations = product(*self.free.values())
+
+        for _free_param_combination in _free_param_combinations:
+            _param_combination = Struct(_base_param_combination)
+            _param_combination.update(zip(self.free.keys(), _free_param_combination))
+            yield _param_combination
