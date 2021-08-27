@@ -69,12 +69,12 @@ class Trainer:
     def __init__(
             self,
             model: torch.nn.Module,
-            optimizers: Union[List[torch.optim], torch.optim],
+            optimizers: Union[Struct, torch.optim],
             loss_criterion: Union[torch.nn.Module, Callable, Struct],
             train_data_loader: DataLoader,
-            callbacks: Struct,
             config: Struct,
-            device: torch.device,
+            device: Optional[torch.device] = None,
+            callbacks: Optional[Struct] = None,
             val_data_loader: Optional[DataLoader] = None,
     ):
         self._model = model
@@ -82,9 +82,10 @@ class Trainer:
         self._loss_criterion = loss_criterion
         self._train_data_loader = train_data_loader
         self._val_data_loader = val_data_loader
+        self._callbacks = [] if callbacks is None else callbacks
         self._callbacks = callbacks + [ProgressBar]
         self._config = config
-        self._device = device
+        self._device = get_device() if device is None else device
 
         self.num_train_batches = len(train_data_loader)
         self.num_val_batches = 0 if val_data_loader is None else len(val_data_loader)
