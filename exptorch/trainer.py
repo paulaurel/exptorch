@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .containers import Struct
+from .callbacks.progress_bar import ProgressBar
 from .utils.validation import validate_type, has_arg, validate_arg
 
 
@@ -81,12 +82,17 @@ class Trainer:
         self._loss_criterion = loss_criterion
         self._train_data_loader = train_data_loader
         self._val_data_loader = val_data_loader
-        self._callbacks = callbacks
+        self._callbacks = callbacks + [ProgressBar]
         self._config = config
         self._device = device
 
+        self.num_train_batches = len(train_data_loader)
+        self.num_val_batches = 0 if val_data_loader is None else len(val_data_loader)
         self.state = TrainerState()
-        self.progress_bar = None
+
+    @property
+    def config(self) -> Struct:
+        return self._config
 
     @property
     def model(self) -> torch.nn.Module:
@@ -102,23 +108,30 @@ class Trainer:
     def fit(self):
         self._init_training()
         self.state.status = TrainerStatus.RUNNING
+        self._call_hook("on_train_start", self)
 
         while not self.terminate_training():
             self._run_epoch()
 
+        self._call_hook("on_train_end", self)
         self.state.status = TrainerStatus.FINISHED
+
+    def _run_epoch(self):
+        self._call_hook("on_epoch_start", self)
+        for batch_idx, batch in enumerate(self._train_data_loader):
+            self._run_batch(batch, batch_idx)
+        self._call_hook("on_epoch_end", self)
 
     def _run_batch(self, batch, batch_idx):
         batch = to_device(batch, self.device)
-        self._call_hook("on_batch_start", self.state, batch)
+        self._call_hook("on_batch_start", self, batch, batch_idx)
         result = self._training_step(batch, batch_idx)
-        self._call_hook("on_batch_end", self.state, **result)
+        self._call_hook("on_batch_end", self, **result)
         self._update_state_on_batch_end()
 
-    def _run_epoch(self):
-        for batch_idx, batch in enumerate(self._train_data_loader):
-            self._run_batch(batch, batch_idx)
-        self._update_state_on_epoch_end()
+    def _update_state_on_epoch_start(self):
+        self.state.num_train_batches = len(self._train_data_loader)
+        self.state.num_val_batches = len(self._val_data_loader) if self._val_data_loader is not None else None
 
     def _update_state_on_batch_end(self):
         self.state.increment_batch()
@@ -131,10 +144,6 @@ class Trainer:
         for callback in self._callbacks.values():
             callback_fn = getattr(callback, hook_name)
             callback_fn(*args, **kwargs)
-
-    def _on_epoch_start(self):
-        for callback in self._callbacks.values():
-            callback.on_epoch_start(self.state, self._model, self._optimizers)
 
     def _on_epoch_end(self):
         for callback in self._callbacks.values():
@@ -183,7 +192,7 @@ class Trainer:
             )
 
     def _training_step(self, batch: tuple, batch_idx: int) -> Struct:
-        result = Struct(batch=batch, loss=[], model_output=[])
+        result = Struct(batch=batch, batch_idx=batch_idx, loss=[], model_output=[])
         for opt_idx, opt in self._optimizers:
             kwargs = self._build_train_kwargs(batch, batch_idx, opt_idx)
             loss, model_output = self._model.training_step(**kwargs)
