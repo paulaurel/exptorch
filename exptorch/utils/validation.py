@@ -1,4 +1,5 @@
-from typing import Union, Tuple, Type
+from inspect import signature
+from typing import Union, Tuple, Type, Callable
 
 
 def validate_type(obj, *, required_type: Union[Type, Tuple], obj_name: str):
@@ -28,3 +29,16 @@ def validate_type(obj, *, required_type: Union[Type, Tuple], obj_name: str):
             f" Given object has type {type(obj).__name__}."
         )
         raise TypeError(error_msg)
+
+
+def has_arg(func: Callable, arg_name: str) -> bool:
+    return arg_name in signature(func).parameters
+
+
+def validate_arg(func: Callable, arg_name: str):
+    if not has_arg(func, arg_name):
+        raise ValueError(
+            f"Require that the function '{func.__name__}'"
+            f" has the argument '{arg_name}'. This argument is missing."
+            f" Arguments provided: {signature(func).parameters}"
+        )
