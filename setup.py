@@ -17,7 +17,7 @@ setup(
     long_description=long_description,
     maintainer="Paul Aurel Diederichs",
     packages=find_packages(exclude=["tests"]),
-    install_requires=["torch", "numpy", "tensorboard"],
+    install_requires=["numpy", "torch", "tensorboard"],
     extras_require=dict(
         dev=[
             "black",
@@ -28,5 +28,6 @@ setup(
             "pytest",
             "pytest-cov",
         ],
+        vis=["torchvision"],
     ),
 )
