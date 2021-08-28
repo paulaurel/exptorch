@@ -30,7 +30,7 @@ if __name__ == "__main__":
         model=model,
         optimizers=optimizers,
         losses=losses,
-        dataset=torchvision.datasets.MNIST(root="./", train=True, download=True, transform=torchvision.transforms.ToTensor()),
+        train_dataset=torchvision.datasets.MNIST(root="./", train=True, download=True, transform=torchvision.transforms.ToTensor()),
         train_params=train_params,
         model_params=model_params,
         optimizer_params=optimizer_params,

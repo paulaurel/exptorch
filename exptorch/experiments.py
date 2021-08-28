@@ -1,7 +1,7 @@
 from json import dumps
 from pathlib import Path
 from datetime import datetime
-from typing import Callable, Union
+from typing import Callable, Optional, List
 
 import torch
 from torch.utils.data import DataLoader
@@ -11,15 +11,17 @@ from .utils.itertools import named_product
 
 
 def run_on_local(
-        model: torch.nn.Module,
-        optimizer: torch.optim,
-        loss: torch.nn.Module,
-        dataset,
-        config: Struct,
+    model: torch.nn.Module,
+    optimizer: torch.optim,
+    losses: torch.nn.Module,
+    dataset,
+    config: Struct,
 ):
-    optimizer = model.configure_optimizers([torch.optim.Adam], **config.optimizer_params)
+    optimizer = model.configure_optimizers(
+        [torch.optim.Adam], **config.optimizer_params
+    )
     model.train()
-    loss_fn = loss()
+    loss_fn = losses()
     dataset = DataLoader(dataset, batch_size=config.exp_params.batch_size)
     running_loss = 0.0
     for epoch in range(config.exp_params.num_epochs):
@@ -31,8 +33,9 @@ def run_on_local(
             running_loss += loss.item()
 
             if idx % 1000 == 999:  # print every 2000 mini-batches
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, idx + 1, running_loss / 1000))
+                print(
+                    "[%d, %5d] loss: %.3f" % (epoch + 1, idx + 1, running_loss / 1000)
+                )
                 running_loss = 0.0
 
     return model
@@ -61,7 +64,9 @@ def run_on_cloud(num_workers):
     # 9. shutdown instance
 
 
-def save_experiment(model, dataset, loss, optimizers, callbacks, exp_config, config_dir):
+def save_experiment(
+        exp_dir, model, train_dataset, losses, optimizers, callbacks, exp_config
+):
     # - experiment_dir described by time
     #   - respective experiment_dir
     #     |- config.json
@@ -69,7 +74,7 @@ def save_experiment(model, dataset, loss, optimizers, callbacks, exp_config, con
 
     # 1. create directory label - use some hash
     # 2. generate config.json --> need to serialize objects
-    # 3. pickle callables and dataset
+    # 3. pickle callables and train_dataset
     # 4. save --> model, optimizers, loss
 
     torch.save(model)
@@ -86,19 +91,21 @@ def load_experiment():
 
 
 def get_exp_dir_name() -> str:
-    return datetime.now().strftime('%Y%m%d_%H%M%S')
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def create_experiments(
     *,
-    model: torch.nn.Module,
-    optimizers: Struct,
-    losses: Struct,
-    dataset,
     train_params: Params,
+    model: torch.nn.Module,
     model_params: Params,
+    optimizers: Struct,
     optimizer_params: Params,
+    losses: Struct,
+    train_dataset,
+    callbacks: List[Callable],
     save_dir: Path,
+    val_dataset: Optional = None,
     run: bool = False,
 ):
     """Create experiments for the specified subset of the hyperparameter space.
@@ -118,7 +125,7 @@ def create_experiments(
         Struct of loss functions.
     callbacks: list
         List of callbacks called during training.
-    dataset:
+    train_dataset:
     train_params: Params
         Parameters defining the training loop(s).
     model_params: Params
@@ -136,18 +143,28 @@ def create_experiments(
     exp_params = Struct(
         train_params=train_params.expand(),
         model_params=model_params.expand(),
+        optimizers=optimizers.values(),
         optimizer_params=optimizer_params.expand(),
-        loss=losses.values(),
+        losses=losses.values(),
+        exp_dir=exp_dir,
     )
 
     for exp_config in named_product(**exp_params):
-        save_experiment(model, dataset, exp_config.loss, optimizers, callbacks, config_dir, all_)
+        save_experiment(
+            exp_dir=exp_dir,
+            model=model,
+            train_dataset=train_dataset,
+            losses=exp_config.loss,
+            optimizers=optimizers,
+            callbacks=callbacks,
+            exp_config=exp_config,
+        )
 
         if run:
             run_on_local(
                 model=model(**exp_config.model_params),
-                loss=exp_config.loss,
-                dataset=dataset,
+                losses=exp_config.losses,
+                dataset=train_dataset,
                 optimizer=optimizers,
                 config=exp_config,
             )
