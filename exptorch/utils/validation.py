@@ -42,3 +42,10 @@ def validate_arg(func: Callable, arg_name: str):
             f" has the argument '{arg_name}'. This argument is missing."
             f" Arguments provided: {signature(func).parameters}"
         )
+
+
+def validate_value(value, *, allowed_values):
+    if value not in allowed_values:
+        raise ValueError(
+            "Expected "
+        )
