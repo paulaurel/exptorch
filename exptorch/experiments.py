@@ -18,7 +18,9 @@ def run_on_local(config):
     model.train()
     loss_fn = config.losses()
     train_dataset = config.train_dataset(**config.train_dataset_params)
-    train_data_loader = DataLoader(train_dataset, batch_size=config.train_params.batch_size)
+    train_data_loader = DataLoader(
+        train_dataset, batch_size=config.train_params.batch_size
+    )
     running_loss = 0.0
     for epoch in range(config.train_params.epochs):
         for idx, batch in enumerate(train_data_loader):

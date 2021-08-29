@@ -20,10 +20,7 @@ def pairwise(iterable):
 def named_product(**kwargs):
     def _ensure_iterable_values(values: Iterable) -> List[Iterable]:
         """Ensure that all elements within values are iterable."""
-        return [
-            value if isinstance(value, Iterable) else [value]
-            for value in values
-        ]
+        return [value if isinstance(value, Iterable) else [value] for value in values]
 
     for config in product(*_ensure_iterable_values(kwargs.values())):
         yield Struct(zip(kwargs.keys(), config))
