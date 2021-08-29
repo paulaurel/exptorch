@@ -1,7 +1,8 @@
-import inspect
+import os
+import json
 import pickle
-from json import dumps
-from pathlib import Path, PosixPath
+import inspect
+from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Union
 from collections.abc import Callable
@@ -41,7 +42,7 @@ def run_on_local(config):
 
 def is_serializable(obj):
     try:
-        dumps(obj)
+        json.dumps(obj)
         return True
     except (TypeError, OverflowError):
         return False
@@ -71,15 +72,9 @@ def _serialize_to_json(exp_config):
 
 
 def save_config(exp_config: Struct):
-    def _serialize_to_json():
-        pass
     exp_config_fname = exp_config.exp_dir / "config.pkl"
     with exp_config_fname.open("wb") as file:
         pickle.dump(exp_config, file)
-
-
-def validate_config(exp_config):
-    pass
 
 
 def required_arguments(fn: Callable):
@@ -117,7 +112,7 @@ def label_experiment(exp_config: Struct, exp_idx: int) -> str:
     return f"{exp_config_label}_{exp_idx_label}"
 
 
-def make_experiment_dir(exp_config: Struct, exp_idx: int) -> PosixPath:
+def make_experiment_dir(exp_config: Struct, exp_idx: int) -> os.PathLike:
     exp_label = label_experiment(exp_config, exp_idx)
     exp_dir = exp_config.exp_base_dir / exp_label
     exp_dir.mkdir()
@@ -135,17 +130,17 @@ def load_experiment(exp_config: Struct):
 
 def create_experiments(
     *,
-    train_params: Params,
-    model: type,
+    save_dir: os.PathLike,
+    model: Callable,
     model_params: Params,
+    train_dataset: Callable,
+    train_params: Params,
     optimizers: Struct,
     optimizer_params: Params,
     losses: Struct,
-    train_dataset,
-    train_dataset_params: Params,
-    save_dir: Path,
-    val_dataset: Optional = None,
-    callbacks: Optional = None,
+    train_dataset_params: Params = None,
+    callbacks: List[Callable] = None,
+    val_dataset: Callable = None,
     run: bool = False,
 ):
     """Create experiments for the specified subset of the hyperparameter space.
@@ -157,31 +152,39 @@ def create_experiments(
 
     Parameters
     ----------
-    model: torch.nn.Module
-        Model to be trained with various parameter settings.
-    optimizers: Struct
-        Struct of optimizers.
-    losses: Struct
-        Struct of loss functions.
-    callbacks: list
-        List of callbacks called during training.
-    train_dataset:
-    train_params: Params
-        Parameters defining the training loop(s).
+    save_dir: PathLike object
+        Path to which the experiments are written.
+    model: Callable
+        Model class to be trained with various parameter settings.
     model_params: Params
         Parameters defining the model instance(s).
+    train_dataset: Callable
+        Dataset class capturing the training dataset.
+    train_params: Params
+        Parameters defining the training loop(s).
+    optimizers: Struct
+        Struct of optimizers.
     optimizer_params: Params
         Parameters defining the optimizer instance(s).
-    save_dir: Path
-        Directory path in which experiment and its configuration is saved.
+    losses: Struct
+        Struct of loss functions.
+    train_dataset_params: Struct
+        Optional parameters defining the train_dataset.
+        If provided the train_dataset is instantiated
+        as follows train_dataset(**train_dataset_params),
+        instead of train_dataset().
+    callbacks: List[Callable]
+        List of callbacks called during the model's training.
+    val_dataset: Callable
+        Dataset class capturing the validation dataset.
     run: bool
+        Whether to run the defined experiments.
     """
-
-    exp_base_dir = save_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
-    exp_base_dir.mkdir()
+    base_dir = Path(save_dir) / datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_dir.mkdir()
 
     exp_params = Struct(
-        exp_base_dir=exp_base_dir,
+        base_dir=base_dir,
         train_params=train_params.expand(),
         model=model,
         model_params=model_params.expand(),
