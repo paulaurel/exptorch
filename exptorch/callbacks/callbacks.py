@@ -7,6 +7,10 @@ from ..trainer import Trainer
 
 
 class Callback(ABC):
+
+    def on_init_end(self, trainer: Trainer):
+        pass
+
     def on_epoch_start(self, trainer: Trainer):
         pass
 

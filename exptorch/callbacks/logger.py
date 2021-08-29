@@ -15,7 +15,7 @@ try:
     from torchvision.utils import make_grid
 except ImportError:
     warn(
-        "Failed to import make_grid from torchvision.utils."
+        "Failed to import 'make_grid' from 'torchvision.utils'."
         " TensorboardLogger will be unable to log batches of images."
     )
 
@@ -31,13 +31,25 @@ def tensor_to_scalar(tensor):
 
 
 class TensorboardLogger(Callback):
-    def __init__(self, log_dir: Path, force_write: Optional[bool] = False):
-        self._make_log_dir(log_dir, force_write)
-        self._log_dir = log_dir
-        self._writer = SummaryWriter(log_dir=str(log_dir))
+    def __init__(self):
+        self._writer = None
+        self._log_dir = None
+
+    def _init_writer(self, exp_dir: Path):
+        self._log_dir = Path(exp_dir) / "logs"
+        self._log_dir.mkdir()
+        self._writer = SummaryWriter(log_dir=str(self._log_dir))
+
+    def on_init_end(self, trainer: Trainer):
+        self._init_writer(trainer.config.exp_dir)
 
     @property
     def log_dir(self):
+        if self._log_dir is None:
+            raise AttributeError(
+                "The log_dir has not been defined yet."
+                "It is defined on completion of Trainer's initialization."
+            )
         return self._log_dir
 
     def flush(self):
@@ -45,10 +57,6 @@ class TensorboardLogger(Callback):
 
     def close(self):
         self._writer.close()
-
-    @staticmethod
-    def _make_log_dir(log_dir: Path, force_write: bool):
-        log_dir.mkdir(exist_ok=force_write)
 
     @staticmethod
     def _make_tag(description: str, prefix: Optional[str] = ""):

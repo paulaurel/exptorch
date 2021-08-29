@@ -91,6 +91,8 @@ class Trainer:
         self.num_val_batches = 0 if val_data_loader is None else len(val_data_loader)
         self.state = TrainerState()
 
+        self._call_hook("on_init_end", self)
+
     @property
     def config(self) -> Struct:
         return self._config
