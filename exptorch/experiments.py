@@ -1,13 +1,10 @@
 import os
-import json
 import pickle
-import inspect
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, List, Union
+from typing import List, Union
 from collections.abc import Callable
 
-import torch
 from torch.utils.data import DataLoader
 
 from .containers import Struct, Params
@@ -40,50 +37,35 @@ def run_on_local(config):
     return model
 
 
-def is_serializable(obj):
-    try:
-        json.dumps(obj)
-        return True
-    except (TypeError, OverflowError):
-        return False
-
-
 def run_on_cloud(num_workers):
-    pass
-    # 1. copy experiment configuration to could instance GCP
-    # 2. create required miniconda image
-    # 3. pull repository
-    # 4. checkout branch given in
-    # 5. load config
-
-    # 6. start training
-
-    # 7. finished training
-    # 8. copy files from instance to local machine
-    # 9. shutdown instance
-
-
-def _serialize_to_pickle(exp_config):
+    """
+    TODO @paul
+        1. copy experiment configuration to could instance GCP
+        2. create required miniconda image
+        3. pull repository
+        4. checkout branch given in
+        5. load config
+        6. start training
+        7. finished training
+        8. copy files from instance to local machine
+        9. shutdown instance`
+    """
     pass
 
 
-def _serialize_to_json(exp_config):
+def serialize_to_json(config: Struct, fname: Path):
+    # TODO @paul implement a json serialization that is human readable
     pass
+
+
+def serialize_to_pickle(config: Struct, fname: Path):
+    with fname.open("wb") as file:
+        pickle.dump(config, file)
 
 
 def save_config(exp_config: Struct):
-    exp_config_fname = exp_config.exp_dir / "config.pkl"
-    with exp_config_fname.open("wb") as file:
-        pickle.dump(exp_config, file)
-
-
-def required_arguments(fn: Callable):
-    all_arguments = inspect.signature(fn).parameters
-    default_arguments = {(arg_name, arg_desc)
-                         for arg_name, arg_desc in all_arguments
-                         if arg_desc.default is not inspect.Parameter.empty
-                         }
-    pass
+    serialize_to_pickle(exp_config, exp_config.exp_dir / "config.pkl")
+    serialize_to_json(exp_config, exp_config.exp_dir / "config.json")
 
 
 def _extract_desc(data: Union[Struct, Callable]) -> str:
@@ -114,14 +96,13 @@ def label_experiment(exp_config: Struct, exp_idx: int) -> str:
 
 def make_experiment_dir(exp_config: Struct, exp_idx: int) -> os.PathLike:
     exp_label = label_experiment(exp_config, exp_idx)
-    exp_dir = exp_config.exp_base_dir / exp_label
+    exp_dir = exp_config.base_dir / exp_label
     exp_dir.mkdir()
     return exp_dir
 
 
 def track_experiment():
     pass
-    # create a commit on a branch with the current state
 
 
 def load_experiment(exp_config: Struct):
@@ -207,6 +188,5 @@ def create_experiments(
         exp_dir = make_experiment_dir(exp_config, exp_idx)
         exp_config.exp_dir = exp_dir
         save_config(exp_config)
-
         if run:
             run_on_local(exp_config)
