@@ -56,6 +56,5 @@ class MLP(nn.Module):
         y_pred = self.forward(x)
         return loss(y_pred, y)
 
-    def configure_optimizers(self, optimizers: torch.optim, **kwargs):
-        optimizer, *_ = optimizers
+    def configure_optimizers(self, optimizer: torch.optim, **kwargs):
         return optimizer(self.net.parameters(), **kwargs)
