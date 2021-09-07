@@ -123,6 +123,10 @@ def track_experiment():
     raise NotImplementedError
 
 
+def _validate_experiment_params(exp_params: Params):
+    raise NotImplementedError
+
+
 def create_experiments(
     *,
     save_dir: os.PathLike,
