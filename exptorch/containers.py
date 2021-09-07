@@ -91,12 +91,15 @@ class Params(Struct):
             Each Struct correspond to a respective parameter combination.
         """
         if self.is_empty():
-            return
+            yield Struct()
 
-        _base_param_combination = deepcopy(self.fixed)
-        _free_param_combinations = product(*self.free.values())
+        else:
+            _base_param_combination = deepcopy(self.fixed)
+            _free_param_combinations = product(*self.free.values())
 
-        for _free_param_combination in _free_param_combinations:
-            _param_combination = Struct(_base_param_combination)
-            _param_combination.update(zip(self.free.keys(), _free_param_combination))
-            yield _param_combination
+            for _free_param_combination in _free_param_combinations:
+                _param_combination = Struct(_base_param_combination)
+                _param_combination.update(
+                    zip(self.free.keys(), _free_param_combination)
+                )
+                yield _param_combination

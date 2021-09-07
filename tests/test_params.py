@@ -17,7 +17,7 @@ EXPANDED_PARAMS = [
 def test_empty():
     empty_params = Params()
     assert empty_params.fixed == Struct() and empty_params.free == Struct()
-    assert list(empty_params.expand()) == []
+    assert list(empty_params.expand()) == [Struct()]
 
 
 @pytest.mark.parametrize(
