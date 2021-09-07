@@ -34,6 +34,12 @@ class Struct(dict):
     def __setattr__(self, key, value):
         self[key] = value
 
+    def __delattr__(self, key: str):
+        try:
+            del self[key]
+        except KeyError:
+            raise AttributeError(key)
+
 
 class Params(Struct):
     """Container object storing fixed and free parameters."""
