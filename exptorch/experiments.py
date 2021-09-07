@@ -57,7 +57,7 @@ def run_on_cloud(num_workers):
 
 def serialize_to_json(config: Struct, fname: Path):
     # TODO @paul implement a json serialization that is human readable
-    pass
+    raise NotImplementedError
 
 
 def serialize_to_pickle(config: Struct, fname: Path):
@@ -65,9 +65,25 @@ def serialize_to_pickle(config: Struct, fname: Path):
         pickle.dump(config, file)
 
 
-def save_config(exp_config: Struct):
+def deserialize_from_pickle(exp_config_fname: Path) -> Struct:
+    with exp_config_fname.open("rb") as file:
+        exp_config = pickle.load(file)
+    return exp_config
+
+
+def save_experiment(exp_config: Struct):
+    if not hasattr(exp_config, "exp_dir"):
+        raise AttributeError(
+            f"Require that '{type(exp_config).__name__}' object 'exp_config' has attribute 'exp_dir'."
+            f" Given 'exp_config' has following attributes: {exp_config.__dict__.keys()}."
+            " Ensure that 'exp_dir' attribute is set."
+        )
     serialize_to_pickle(exp_config, exp_config.exp_dir / "config.pkl")
-    serialize_to_json(exp_config, exp_config.exp_dir / "config.json")
+    # serialize_to_json(exp_config, exp_config.exp_dir / "config.json")
+
+
+def load_experiment(exp_config_fname: Union[Path, os.PathLike]) -> Struct:
+    return deserialize_from_pickle(Path(exp_config_fname))
 
 
 def _extract_desc(data: Union[Struct, Callable]) -> str:
@@ -96,7 +112,7 @@ def label_experiment(exp_config: Struct, exp_idx: int) -> str:
     return f"{exp_config_label}_{exp_idx_label}"
 
 
-def make_experiment_dir(exp_config: Struct, exp_idx: int) -> os.PathLike:
+def make_experiment_dir(exp_config: Struct, exp_idx: int) -> Path:
     exp_label = label_experiment(exp_config, exp_idx)
     exp_dir = exp_config.base_dir / exp_label
     exp_dir.mkdir()
@@ -104,11 +120,7 @@ def make_experiment_dir(exp_config: Struct, exp_idx: int) -> os.PathLike:
 
 
 def track_experiment():
-    pass
-
-
-def load_experiment(exp_config: Struct):
-    pass
+    raise NotImplementedError
 
 
 def create_experiments(
@@ -121,7 +133,7 @@ def create_experiments(
     optimizers: Struct,
     optimizer_params: Params,
     losses: Struct,
-    train_dataset_params: Params = None,
+    train_dataset_params: Union[Params, Struct] = None,
     callbacks: List[Callable] = None,
     val_dataset: Callable = None,
     run: bool = False,
@@ -154,7 +166,7 @@ def create_experiments(
     train_dataset_params: Struct
         Optional parameters defining the train_dataset.
         If provided the train_dataset is instantiated
-        as follows train_dataset(**train_dataset_params),
+        as follows train_dataset(**dataset_params),
         instead of train_dataset().
     callbacks: List[Callable]
         List of callbacks called during the model's training.
@@ -187,8 +199,7 @@ def create_experiments(
         exp_params.val_dataset = val_dataset
 
     for exp_idx, exp_config in enumerate(named_product(**exp_params)):
-        exp_dir = make_experiment_dir(exp_config, exp_idx)
-        exp_config.exp_dir = exp_dir
-        save_config(exp_config)
+        exp_config.exp_dir = make_experiment_dir(exp_config, exp_idx)
+        save_experiment(exp_config)
         if run:
             run_on_local(exp_config)
