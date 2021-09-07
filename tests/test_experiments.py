@@ -1,7 +1,12 @@
 import pytest
 
 from exptorch import Struct
-from exptorch.experiments import label_experiment, make_experiment_dir, save_experiment, load_experiment
+from exptorch.experiments import (
+    label_experiment,
+    make_experiment_dir,
+    save_experiment,
+    load_experiment,
+)
 
 
 class EmptyModel:
@@ -63,10 +68,9 @@ EXPECTED_MULTI_OPT_EXP_LABEL = (
     [
         [SINGLE_OPT_EXP, 0, EXPECTED_SINGLE_OPT_EXP_LABEL],
         [MULTI_OPT_EXP, 2, EXPECTED_MULTI_OPT_EXP_LABEL],
-    ]
+    ],
 )
 class TestExperimentsFunctionality:
-
     @staticmethod
     def test_label_experiment(exp_config, exp_idx, expected_label):
         assert label_experiment(exp_config, exp_idx) == expected_label
@@ -85,7 +89,9 @@ class TestExperimentsFunctionality:
         exp_config_fname = tmpdir / expected_label / "config.pkl"
         assert exp_config_fname.exists()
         loaded_exp_config = load_experiment(exp_config_fname)
-        assert (loaded_exp_config == exp_config) and (load_experiment is not exp_config_fname)
+        assert (loaded_exp_config == exp_config) and (
+            load_experiment is not exp_config_fname
+        )
 
 
 @pytest.mark.parametrize("exp_config", [SINGLE_OPT_EXP, MULTI_OPT_EXP])
