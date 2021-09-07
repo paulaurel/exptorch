@@ -88,10 +88,10 @@ class TestExperimentsFunctionality:
         save_experiment(exp_config)
         exp_config_fname = tmpdir / expected_label / "config.pkl"
         assert exp_config_fname.exists()
+
         loaded_exp_config = load_experiment(exp_config_fname)
-        assert (loaded_exp_config == exp_config) and (
-            load_experiment is not exp_config_fname
-        )
+        assert loaded_exp_config == exp_config
+        assert load_experiment is not exp_config_fname
 
 
 @pytest.mark.parametrize("exp_config", [SINGLE_OPT_EXP, MULTI_OPT_EXP])
