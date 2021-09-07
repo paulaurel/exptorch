@@ -119,10 +119,6 @@ def make_experiment_dir(exp_config: Struct, exp_idx: int) -> Path:
     return exp_dir
 
 
-def track_experiment():
-    raise NotImplementedError
-
-
 def _validate_experiment_params(exp_params: Params):
     raise NotImplementedError
 
