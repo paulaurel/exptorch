@@ -39,7 +39,7 @@ def run_on_local(config):
     return model
 
 
-def run_on_cloud(num_workers):
+def run_on_remote(num_workers):
     """
     TODO @paul
         1. copy experiment configuration to could instance GCP
