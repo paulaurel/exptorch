@@ -14,6 +14,10 @@ def test_access(key):
     assert getattr(STRUCT, key) == STRUCT[key]
 
 
+def test_access_nested_struct():
+    assert NESTED_STRUCT.b.d == NESTED_STRUCT["b"]["d"]
+
+
 def test_builtin_keys_method():
     assert set(STRUCT.keys()) == set(KEYS)
 
@@ -37,5 +41,14 @@ def test_deepcopy():
     assert NESTED_STRUCT.b == initial_value
 
 
-def test_nesting():
-    assert NESTED_STRUCT.b.d == NESTED_STRUCT["b"]["d"]
+@pytest.mark.parametrize("key", KEYS)
+def test_delattr(key):
+    copied_value = getattr(STRUCT, key)
+    delattr(STRUCT, key)
+
+    with pytest.raises(AttributeError):
+        getattr(STRUCT, key)
+    with pytest.raises(AttributeError):
+        delattr(STRUCT, key)
+
+    setattr(STRUCT, key, copied_value)
