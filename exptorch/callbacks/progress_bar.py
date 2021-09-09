@@ -1,7 +1,6 @@
 from tqdm import tqdm
 
 from .callbacks import Callback
-from ..trainer import Trainer
 
 
 class ProgressBar(Callback):
@@ -24,13 +23,15 @@ class ProgressBar(Callback):
     def on_epoch_start(self, trainer):
         total_num_batches = trainer.num_train_batches + trainer.num_val_batches
         self.main_progress_bar.reset(total_num_batches)
-        self.main_progress_bar.set_description(f"Epoch {trainer.state.epoch} / {trainer.config.num_epochs}")
+        self.main_progress_bar.set_description(
+            f"Epoch {trainer.state.epoch_idx} / {trainer.max_epochs}"
+        )
 
     def on_batch_end(self, trainer, batch, batch_idx, loss, model_output):
-        if batch_idx % self.refresh_rate:
+        if trainer.state.batch_idx % self.refresh_rate == 0:
             self.main_progress_bar.update(self.refresh_rate)
             # @ TODO format loss output
             self.main_progress_bar.set_postfix(loss=loss)
 
-    def on_train_end(self, trainer: Trainer):
+    def on_train_end(self, trainer):
         self.main_progress_bar.close()

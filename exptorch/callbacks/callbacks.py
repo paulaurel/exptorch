@@ -3,26 +3,24 @@ from abc import ABC
 
 import torch
 
-from ..trainer import Trainer
-
 
 class Callback(ABC):
 
-    def on_init_end(self, trainer: Trainer):
+    def on_init_end(self, trainer):
         pass
 
-    def on_epoch_start(self, trainer: Trainer):
+    def on_epoch_start(self, trainer):
         pass
 
-    def on_epoch_end(self, trainer: Trainer):
+    def on_epoch_end(self, trainer):
         pass
 
-    def on_batch_start(self, trainer: Trainer, batch: tuple, batch_idx: int):
+    def on_batch_start(self, trainer, batch: tuple, batch_idx: int):
         pass
 
     def on_batch_end(
         self,
-        trainer: Trainer,
+        trainer,
         batch: tuple,
         batch_idx: int,
         loss: List[torch.Tensor],
@@ -30,8 +28,8 @@ class Callback(ABC):
     ):
         pass
 
-    def on_train_start(self, trainer: Trainer):
+    def on_train_start(self, trainer):
         pass
 
-    def on_train_end(self, trainer: Trainer):
+    def on_train_end(self, trainer):
         pass

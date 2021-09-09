@@ -1,42 +1,66 @@
 import os
 import pickle
 from pathlib import Path
+from functools import partial
 from datetime import datetime
-from typing import List, Union
+from typing import List, Union, Optional
 from collections.abc import Callable
 
 from torch.utils.data import DataLoader
 
+from .trainer import Trainer
 from .containers import Struct, Params
 from .utils.itertools import named_product
 from .utils.validation import validate_type
 
 
+def _init_config_factory(config: Struct, key: str, param_key: Optional[str] = None):
+    if isinstance(config[key], Callable):
+        try:
+            return config[key](**config.get(param_key, {}))
+        except TypeError:
+            raise TypeError(
+
+            )
+    elif isinstance(config[key], list):
+        try:
+            return [item() for item in config[key]]
+        except TypeError:
+            raise TypeError(
+
+            )
+    else:
+        try:
+            return Struct(
+                (key, value(**config.get(param_key, {}).get(key, {})))
+                for key, value in config.losses.items()
+            )
+        except TypeError:
+            raise TypeError
+
+
+init_model = partial(_init_config_factory, key="model", param_key="model_params")
+init_callbacks = partial(_init_config_factory, key="callbacks")
+init_loss = partial(_init_config_factory, key="losses", param_key="loss_params")
+init_train_dataset = partial(_init_config_factory, key="train_dataset", param_key="train_dataset_params")
+
+
 def run_on_local(config):
-    model = config.model(**config.model_params)
-    optimizer = model.configure_optimizers(config.optimizers, **config.optimizer_params)
-    model.train()
-    loss_fn = config.losses()
-    train_dataset = config.train_dataset(**config.train_dataset_params)
-    train_data_loader = DataLoader(
-        train_dataset, batch_size=config.train_params.batch_size
+    trainer = Trainer(
+        model=init_model(config),
+        loss_criterion=init_loss(config),
+        train_data_loader=DataLoader(
+            dataset=init_train_dataset(config),
+            batch_size=config.train_params.batch_size,
+        ),
+        max_epochs=config.train_params.epochs,
+        exp_dir=config.exp_dir,
+        optimizers=config.optimizers,
+        optimizer_params=config.optimizer_params,
+        callbacks=init_callbacks(config),
     )
-    running_loss = 0.0
-    for epoch in range(config.train_params.epochs):
-        for idx, batch in enumerate(train_data_loader):
-            loss = model.training_step(batch, loss_fn)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            running_loss += loss.item()
-
-            if idx % 1000 == 999:  # print every 2000 mini-batches
-                print(
-                    "[%d, %5d] loss: %.3f" % (epoch + 1, idx + 1, running_loss / 1000)
-                )
-                running_loss = 0.0
-
-    return model
+    trainer.fit()
+    return trainer.model
 
 
 def run_on_remote(num_workers):
@@ -130,12 +154,13 @@ def create_experiments(
     model_params: Params,
     train_dataset: Callable,
     train_params: Params,
-    optimizers: Struct,
+    optimizers: Union[Callable, List, Struct],
     optimizer_params: Params,
-    losses: Struct,
+    losses: Union[Callable, List, Struct],
     train_dataset_params: Union[Params, Struct] = None,
     callbacks: List[Callable] = None,
     val_dataset: Callable = None,
+    val_dataset_params: Union[Params, Struct] = None,
     run: bool = False,
 ):
     """Create experiments for the specified subset of the hyperparameter space.
@@ -162,7 +187,7 @@ def create_experiments(
     optimizer_params: Params
         Parameters defining the optimizer instance(s).
     losses: Struct
-        Struct of loss functions.
+        Struct of loss_criterion functions.
     train_dataset_params: Struct
         Optional parameters defining the train_dataset.
         If provided the train_dataset is instantiated
@@ -183,20 +208,14 @@ def create_experiments(
         train_params=train_params.expand(),
         model=model,
         model_params=model_params.expand(),
-        optimizers=optimizers.values(),
+        optimizers=optimizers,
         optimizer_params=optimizer_params.expand(),
         train_dataset=train_dataset,
-        train_dataset_params=train_dataset_params.expand(),
-        losses=losses.values(),
+        train_dataset_params=Params() if train_dataset_params is None else train_dataset_params.expand(),
+        losses=losses,
+        callbacks=None if callbacks is None else [callbacks],
+        val_dataset=val_dataset,
     )
-
-    if callbacks is not None:
-        validate_type(callbacks, required_type=list, obj_name="callbacks")
-        exp_params.callbacks = [callbacks]
-
-    if val_dataset is not None:
-        validate_type(val_dataset, required_type=Callable, obj_name="val_dataset")
-        exp_params.val_dataset = val_dataset
 
     for exp_idx, exp_config in enumerate(named_product(**exp_params)):
         exp_config.exp_dir = make_experiment_dir(exp_config, exp_idx)

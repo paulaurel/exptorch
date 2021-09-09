@@ -9,7 +9,7 @@ from examples.models import MLP
 
 
 config_dir = Path("./")
-train_params = Params(fixed=Struct(epochs=2, batch_size=16))
+train_params = Params(fixed=Struct(epochs=5, batch_size=16))
 
 model = MLP
 model_params = Params(
@@ -18,9 +18,9 @@ model_params = Params(
     activation=[torch.nn.ReLU, torch.nn.Tanh],
 )
 
-losses = Struct(loss=torch.nn.CrossEntropyLoss)
+losses = Struct(ce=torch.nn.CrossEntropyLoss, mse=torch.nn.MSELoss)
 
-optimizers = Struct(adam=torch.optim.Adam, sgd=torch.optim.SGD)
+optimizers = [torch.optim.Adam, torch.optim.SGD]
 optimizer_params = Params(lr=[0.001, 0.005, 0.01])
 
 train_dataset = torchvision.datasets.MNIST

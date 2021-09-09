@@ -41,7 +41,7 @@ class TensorboardLogger(Callback):
         self._writer = SummaryWriter(log_dir=str(self._log_dir))
 
     def on_init_end(self, trainer: Trainer):
-        self._init_writer(trainer.config.exp_dir)
+        self._init_writer(trainer.exp_dir)
 
     @property
     def log_dir(self):

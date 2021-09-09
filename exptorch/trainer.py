@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 from inspect import signature
 from types import GeneratorType
 from dataclasses import dataclass
@@ -26,17 +27,17 @@ class TrainerStatus(Enum):
 @dataclass
 class TrainerState:
     status: TrainerStatus = TrainerStatus.INITIALIZING
-    epoch: int = 1
-    batch: int = 1
+    epoch_idx: int = 1
+    batch_idx: int = 1
 
     def reset_batch(self):
-        self.batch = 1
+        self.batch_idx = 1
 
     def increment_batch(self):
-        self.batch += 1
+        self.batch_idx += 1
 
     def increment_epoch(self):
-        self.epoch += 1
+        self.epoch_idx += 1
 
 
 def to_device(data, device: torch.device):
@@ -69,67 +70,82 @@ class Trainer:
     def __init__(
             self,
             model: torch.nn.Module,
-            optimizers: Union[Struct, torch.optim],
+            optimizers,
+            optimizer_params: Union[Struct, dict],
             loss_criterion: Union[torch.nn.Module, Callable, Struct],
             train_data_loader: DataLoader,
-            config: Struct,
+            max_epochs: int,
+            exp_dir: Path,
             device: Optional[torch.device] = None,
-            callbacks: Optional[Struct] = None,
+            callbacks: Optional[List] = None,
             val_data_loader: Optional[DataLoader] = None,
     ):
         self._model = model
         self._optimizers = optimizers
+        self._optimizer_params = optimizer_params
         self._loss_criterion = loss_criterion
         self._train_data_loader = train_data_loader
         self._val_data_loader = val_data_loader
         self._callbacks = [] if callbacks is None else callbacks
-        self._callbacks = callbacks + [ProgressBar]
-        self._config = config
+        self._callbacks = callbacks + [ProgressBar()]
+        self._exp_dir = exp_dir
+        self._max_epochs = max_epochs
         self._device = get_device() if device is None else device
 
         self.num_train_batches = len(train_data_loader)
         self.num_val_batches = 0 if val_data_loader is None else len(val_data_loader)
         self.state = TrainerState()
 
-        self._call_hook("on_init_end", self)
-
-    @property
-    def config(self) -> Struct:
-        return self._config
+        self._call_hook("on_init_end")
 
     @property
     def model(self) -> torch.nn.Module:
         return self._model
 
     @property
+    def optimizers(self) -> List:
+        return self._optimizers
+
+    @property
+    def max_epochs(self) -> int:
+        return self._max_epochs
+
+    @property
+    def exp_dir(self) -> Path:
+        return self._exp_dir
+
+    @property
     def device(self) -> torch.device:
         return self._device
 
     def terminate_training(self) -> bool:
-        return self.state.epoch == self._config.train_params.num_epochs
+        return self.state.epoch_idx == self._max_epochs
 
     def fit(self):
         self._init_training()
         self.state.status = TrainerStatus.RUNNING
-        self._call_hook("on_train_start", self)
+        self._call_hook("on_train_start")
 
-        while not self.terminate_training():
+        while True:
             self._run_epoch()
+            if self.terminate_training():
+                break
 
-        self._call_hook("on_train_end", self)
+        self._call_hook("on_train_end")
         self.state.status = TrainerStatus.FINISHED
 
     def _run_epoch(self):
-        self._call_hook("on_epoch_start", self)
+        self._call_hook("on_epoch_start")
         for batch_idx, batch in enumerate(self._train_data_loader):
             self._run_batch(batch, batch_idx)
-        self._call_hook("on_epoch_end", self)
+        self._call_hook("on_epoch_end")
+        self._update_state_on_epoch_end()
 
     def _run_batch(self, batch, batch_idx):
         batch = to_device(batch, self.device)
-        self._call_hook("on_batch_start", self, batch, batch_idx)
+        self._call_hook("on_batch_start", batch, batch_idx)
         result = self._training_step(batch, batch_idx)
-        self._call_hook("on_batch_end", self, **result)
+        self._call_hook("on_batch_end", **result)
         self._update_state_on_batch_end()
 
     def _update_state_on_epoch_start(self):
@@ -144,15 +160,9 @@ class Trainer:
         self.state.reset_batch()
 
     def _call_hook(self, hook_name: str, *args, **kwargs):
-        for callback in self._callbacks.values():
+        for callback in self._callbacks:
             callback_fn = getattr(callback, hook_name)
-            callback_fn(*args, **kwargs)
-
-    def _on_epoch_end(self):
-        for callback in self._callbacks.values():
-            callback.on_epoch_end(
-                self.state, self._model, self._optimizers, self._val_data_loader
-            )
+            callback_fn(self, *args, **kwargs)
 
     def _init_training(self):
         self._init_model_for_training()
@@ -163,6 +173,15 @@ class Trainer:
         self._model.train()
         torch.set_grad_enabled(True)
         self._model.to(self._device)
+
+    def _init_optimizer(self):
+        self._optimizers = self.model.configure_optimizers(self._optimizers, **self._optimizer_params)
+        if not isinstance(self._optimizers, (list, tuple)):
+            self._optimizers = [self._optimizers]
+        for optimizer in self._optimizers:
+            validate_type(
+                optimizer, required_type=torch.optim.Optimizer, obj_name="optimizer"
+            )
 
     def _check_train_args(self):
         for required_arg in self._required_training_step_args:
@@ -176,7 +195,7 @@ class Trainer:
             has_opt_idx_arg = has_arg(self.model.training_step, "optimizer_idx")
             if not has_opt_idx_arg:
                 raise ValueError(
-                    f"Given model defines {num_opts} optimizers and therefore,"
+                    f"Given model, {type(self.model).__name__}, instantiates {num_opts} optimizers and therefore,"
                     f" the model's method {self.model.training_step.__name__} requires the argument 'opt_idx'."
                     " This argument is missing."
                     f" Provided arguments are: {signature(self.model.training_step).parameters}"
@@ -185,18 +204,9 @@ class Trainer:
 
         return kwargs
 
-    def _init_optimizer(self):
-        self._optimizers = self.model.configure_optimizers(self._optimizers, **self._config.optimizer_params)
-        if not isinstance(self._optimizers, (list, tuple)):
-            self._optimizers = list(self._optimizers)
-        for optimizer in self._optimizers:
-            validate_type(
-                optimizer, required_type=torch.optim.Optimizer, obj_name="optimizer"
-            )
-
     def _training_step(self, batch: tuple, batch_idx: int) -> Struct:
         result = Struct(batch=batch, batch_idx=batch_idx, loss=[], model_output=[])
-        for opt_idx, opt in self._optimizers:
+        for opt_idx, opt in enumerate(self._optimizers):
             kwargs = self._build_train_kwargs(batch, batch_idx, opt_idx)
             loss, model_output = self._model.training_step(**kwargs)
             loss.backward()
