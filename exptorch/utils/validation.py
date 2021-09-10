@@ -33,3 +33,28 @@ def validate_type(obj, *, required_type: Union[Type, Tuple], obj_name: str):
             f"Require {obj_name} to be of type: {', '.join(required_type_name)}."
             f" Given object has type {type(obj).__name__}."
         )
+
+
+def validate_value(value, *, allowed_value, value_name):
+    """Validate that given value corresponds to the allowed_value.
+
+    Notes
+    -----
+    A tuple, as in ``validate_value(x, allowed_value=(A, B, ...), value_name="x")``,
+    may be given as the target to check against. This is equivalent to
+    ``validate_value(x, allowed_value=A, value_name="x")
+    or validate_value(x, allowed_value=B, value_name="x") or ...``
+
+    Raises
+    ------
+    Raises ValueError if the value does not correspond to the allowed_value.
+    """
+    allowed_value = (
+        allowed_value if isinstance(allowed_value, tuple) else (allowed_value,)
+    )
+
+    if value not in allowed_value:
+        raise ValueError(
+            f"Require that {value_name} has one of the following values: {', '.join(allowed_value)}."
+            f" Instead {value_name} is: {value}."
+        )
