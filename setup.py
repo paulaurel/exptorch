@@ -27,6 +27,7 @@ setup(
             "pylint",
             "pytest",
             "pytest-cov",
+            "torchvision",
         ],
     ),
 )
