@@ -27,6 +27,7 @@ def named_product(**kwargs) -> Iterable:
     Examples
     --------
         named_product(a=1, b=[2, 3]) --> Struct(a=1, b=2), Struct(a=1, b=3)
+        named_product(a=dict(a=1, b=2), b=Struct(c=1)) --> Struct(a=dict(a=1, b=2), b=Struct(c=1))
     """
 
     def _ensure_iterable_values(values: Iterable) -> List[Iterable]:
