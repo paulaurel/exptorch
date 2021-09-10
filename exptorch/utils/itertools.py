@@ -21,19 +21,23 @@ def named_product(**kwargs) -> Iterable:
     """Iterate over the cartesian product between all input kwargs.values().
     Assign a name to each value within the cartesian product.
     The name corresponds to the key associated with the value.
-
     Notes
     -----
         named_product(a=A, b=B) returns the same as: (Struct(a=x, b=y) for x in A for y in B).
-
     Examples
     --------
         named_product(a=1, b=[2, 3]) --> Struct(a=1, b=2), Struct(a=1, b=3)
+        named_product(a=dict(a=1, b=2), b=Struct(c=1)) --> Struct(a=dict(a=1, b=2), b=Struct(c=1))
     """
 
     def _ensure_iterable_values(values: Iterable) -> List[Iterable]:
         """Ensure that all elements within values are iterable."""
-        return [value if isinstance(value, Iterable) else [value] for value in values]
+        return [
+            value
+            if isinstance(value, Iterable) and not isinstance(value, dict)
+            else [value]
+            for value in values
+        ]
 
     for config in product(*_ensure_iterable_values(kwargs.values())):
         yield Struct(zip(kwargs.keys(), config))
