@@ -2,10 +2,11 @@ import pytest
 
 from exptorch import Struct
 from exptorch.experiments import (
-    label_experiment,
-    make_experiment_dir,
     save_experiment,
     load_experiment,
+    label_experiment,
+    make_experiment_dir,
+    get_git_revision_hash,
 )
 
 
@@ -38,6 +39,7 @@ SINGLE_OPT_EXP = Struct(
     train_dataset=EmptyTrainDataset,
     train_dataset_params=Struct(dataset_dir="./dataset_dir"),
     losses=EmptyLoss,
+    git_rev_hash=get_git_revision_hash(),
 )
 MULTI_OPT_EXP = Struct(
     model=EmptyModel,
@@ -51,6 +53,7 @@ MULTI_OPT_EXP = Struct(
     train_dataset=EmptyTrainDataset,
     train_dataset_params=Struct(dataset_dir="./dataset_dir"),
     losses=EmptyLoss,
+    git_rev_hash=get_git_revision_hash(),
 )
 EXPECTED_SINGLE_OPT_EXP_LABEL = (
     "emptymodel_emptytraindataset_epochs_100_batch_size_16"

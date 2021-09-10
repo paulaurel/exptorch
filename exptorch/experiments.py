@@ -1,6 +1,8 @@
 import os
 import pickle
+import subprocess
 from pathlib import Path
+from warnings import warn
 from datetime import datetime
 from typing import List, Union
 from collections.abc import Callable
@@ -56,6 +58,11 @@ def run_on_remote(num_workers):
     pass
 
 
+def get_git_revision_hash() -> str:
+    """Get current git revision hash as a string."""
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
+
+
 def serialize_to_json(config: Struct, fname: Path):
     # TODO @paul implement a json serialization that is human readable
     raise NotImplementedError
@@ -84,7 +91,16 @@ def save_experiment(exp_config: Struct):
 
 
 def load_experiment(exp_config_fname: Union[Path, os.PathLike]) -> Struct:
-    return deserialize_from_pickle(Path(exp_config_fname))
+    """Load experiment from pickled experiment configuration file."""
+    exp_config = deserialize_from_pickle(Path(exp_config_fname))
+    if (cur_rev_hash := get_git_revision_hash()) != exp_config.git_rev_hash:
+        warn(
+            "The current commit is different to the commit the experiment was saved on.\n"
+            f"The current commit is: {cur_rev_hash}.\n"
+            f"The experiment was saved on commit: {exp_config.git_rev_hash}.\n"
+            "Consequently, experiment results are not guaranteed to be identical and the experiment can fail."
+        )
+    return exp_config
 
 
 def _extract_desc(data: Union[Struct, Callable]) -> str:
@@ -189,6 +205,7 @@ def create_experiments(
         train_dataset=train_dataset,
         train_dataset_params=train_dataset_params.expand(),
         losses=losses.values(),
+        git_rev_hash=get_git_revision_hash(),
     )
 
     if callbacks is not None:
