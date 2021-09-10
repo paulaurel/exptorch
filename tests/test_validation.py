@@ -12,7 +12,7 @@ from exptorch.utils.validation import validate_type
             float,
             "learning_rate",
             (
-                "Require learning_rate to be of type: ('float',)."
+                "Require learning_rate to be of type: float."
                 " Given object has type int."
             ),
         ],
@@ -21,7 +21,7 @@ from exptorch.utils.validation import validate_type
             (Struct, Params),
             "experiment_parameters",
             (
-                "Require experiment_parameters to be of type: ('Struct', 'Params')."
+                "Require experiment_parameters to be of type: Struct, Params."
                 " Given object has type dict."
             ),
         ],

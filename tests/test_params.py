@@ -26,14 +26,14 @@ def test_empty():
         [
             5,
             (
-                "Require Params.fixed to be of type: ('Struct',)."
+                "Require Params.fixed to be of type: Struct."
                 " Given object has type int."
             ),
         ],
         [
             dict(a=1, b=2),
             (
-                "Require Params.fixed to be of type: ('Struct',)."
+                "Require Params.fixed to be of type: Struct."
                 " Given object has type dict."
             ),
         ],
@@ -50,24 +50,15 @@ def test_raise_type_error_for_invalid_fixed_params(invalid_fixed_params, error_m
     [
         [
             Struct(c=3, d=[5, 6]),
-            (
-                "Require Params.c to be of type: ('list',)."
-                " Given object has type int."
-            ),
+            ("Require Params.c to be of type: list." " Given object has type int."),
         ],
         [
             Struct(c=3, d=4),
-            (
-                "Require Params.c to be of type: ('list',)."
-                " Given object has type int."
-            ),
+            ("Require Params.c to be of type: list." " Given object has type int."),
         ],
         [
             Struct(c=[3, 4], d=5),
-            (
-                "Require Params.d to be of type: ('list',)."
-                " Given object has type int."
-            ),
+            ("Require Params.d to be of type: list." " Given object has type int."),
         ],
     ],
 )
