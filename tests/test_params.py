@@ -21,7 +21,7 @@ def test_empty():
 
 
 @pytest.mark.parametrize(
-    "invalid_fixed_params, error_msg",
+    "invalid_fixed_params, expected_error_msg",
     [
         [
             5,
@@ -39,33 +39,37 @@ def test_empty():
         ],
     ],
 )
-def test_raise_type_error_for_invalid_fixed_params(invalid_fixed_params, error_msg):
+def test_raise_type_error_for_invalid_fixed_params(
+    invalid_fixed_params, expected_error_msg
+):
     with pytest.raises(TypeError) as type_error:
         Params(fixed=invalid_fixed_params, **FREE)
-    assert type_error.value.args[0] == error_msg
+    assert type_error.value.args[0] == expected_error_msg
 
 
 @pytest.mark.parametrize(
-    "invalid_free_params, error_msg",
+    "invalid_free_params, expected_error_msg",
     [
         [
             Struct(c=3, d=[5, 6]),
-            ("Require Params.c to be of type: list." " Given object has type int."),
+            "Require Params.c to be of type: list. Given object has type int.",
         ],
         [
             Struct(c=3, d=4),
-            ("Require Params.c to be of type: list." " Given object has type int."),
+            "Require Params.c to be of type: list. Given object has type int.",
         ],
         [
             Struct(c=[3, 4], d=5),
-            ("Require Params.d to be of type: list." " Given object has type int."),
+            "Require Params.d to be of type: list. Given object has type int.",
         ],
     ],
 )
-def test_raise_type_error_for_invalid_free_params(invalid_free_params, error_msg):
+def test_raise_type_error_for_invalid_free_params(
+    invalid_free_params, expected_error_msg
+):
     with pytest.raises(TypeError) as type_error:
         Params(fixed=FIXED, **invalid_free_params)
-    assert type_error.value.args[0] == error_msg
+    assert type_error.value.args[0] == expected_error_msg
 
 
 @pytest.mark.parametrize(
