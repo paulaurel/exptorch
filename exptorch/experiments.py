@@ -8,16 +8,17 @@ from collections.abc import Callable
 from torch.utils.data import DataLoader
 
 from .containers import Struct, Params
+from .utils.constructor import construct
 from .utils.itertools import named_product
 from .utils.validation import validate_type
 
 
 def run_on_local(config):
-    model = config.model(**config.model_params)
+    model = construct(config.model, **config.model_params)
     optimizer = model.configure_optimizers(config.optimizers, **config.optimizer_params)
     model.train()
-    loss_fn = config.losses()
-    train_dataset = config.train_dataset(**config.train_dataset_params)
+    loss_fn = construct(config.losses)
+    train_dataset = construct(config.train_dataset, **config.train_dataset_params)
     train_data_loader = DataLoader(
         train_dataset, batch_size=config.train_params.batch_size
     )
