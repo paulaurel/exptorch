@@ -55,6 +55,7 @@ def validate_value(value, *, allowed_value, value_name):
 
     if value not in allowed_value:
         raise ValueError(
-            f"Require that {value_name} has one of the following values: {', '.join(allowed_value)}."
-            f" Instead {value_name} is: {value}."
+            f"Require that {value_name} corresponds to"
+            f" one of the following values: {', '.join(map(str, allowed_value))}."
+            f" Instead {value_name} has the value: {value}."
         )
