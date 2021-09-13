@@ -1,25 +1,33 @@
 import os
+import torch
 import pickle
 import subprocess
 from pathlib import Path
 from warnings import warn
 from datetime import datetime
-from typing import List, Union
+from types import FunctionType
 from collections.abc import Callable
-
 from torch.utils.data import DataLoader
+from typing import List, Union, Type, Optional
 
 from .containers import Struct, Params
 from .utils.constructor import construct
 from .utils.itertools import named_product
-from .utils.validation import validate_type
+from .utils.validation import validate_value
 
 
 def run_on_local(config):
+    """Run experiment specified by the experiment configuration on the local machine.
+
+    Parameters
+    ----------
+    config: Struct
+        Experiment configuration specifying the learning experiment.
+    """
     model = construct(config.model, **config.model_params)
     optimizer = model.configure_optimizers(config.optimizers, **config.optimizer_params)
     model.train()
-    loss_fn = construct(config.losses)
+    loss_criterion = construct(config.losses, **config.loss_params)
     train_dataset = construct(config.train_dataset, **config.train_dataset_params)
     train_data_loader = DataLoader(
         train_dataset, batch_size=config.train_params.batch_size
@@ -27,7 +35,7 @@ def run_on_local(config):
     running_loss = 0.0
     for epoch in range(config.train_params.epochs):
         for idx, batch in enumerate(train_data_loader):
-            loss = model.training_step(batch, loss_fn)
+            loss = model.training_step(batch, loss_criterion)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -55,12 +63,41 @@ def run_on_remote(num_workers):
         8. copy files from instance to local machine
         9. shutdown instance`
     """
-    pass
+    raise NotImplementedError
 
 
-def get_git_revision_hash() -> str:
-    """Get current git revision hash as a string."""
-    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
+def run_experiments(exp_configs: List[Struct], execution_strategy: str = "local"):
+    """Run all of experiment configurations defined within exp_configs.
+
+    Parameters
+    ----------
+    exp_configs: List[Struct]
+        List of experiment configurations.
+        Each list entry defines a experiment configuration, which will be executed.
+    execution_strategy: str
+        Defines whether the experiment is performed on the local machine or on a
+        remote machine. Can taken on two values ("local", "remote").
+    """
+    validate_value(
+        execution_strategy,
+        allowed_value=("local", "remote"),
+        value_name="execution_strategy",
+    )
+
+    for exp_idx, exp_config in enumerate(exp_configs):
+        exp_config = load_experiment(exp_config.exp_dir / "config.pkl")
+
+        if execution_strategy == "local":
+            try:
+                run_on_local(exp_config)
+            except Exception as err_msg:
+                warn(
+                    f"Experiment {label_experiment(exp_config, exp_idx)} failed"
+                    f" with the following error: {err_msg}."
+                )
+
+    if execution_strategy == "remote":
+        run_on_remote(num_workers=5)
 
 
 def serialize_to_json(config: Struct, fname: Path):
@@ -68,18 +105,35 @@ def serialize_to_json(config: Struct, fname: Path):
     raise NotImplementedError
 
 
-def serialize_to_pickle(config: Struct, fname: Path):
-    with fname.open("wb") as file:
-        pickle.dump(config, file)
+def serialize_to_pickle(config: Struct, config_fname: Path):
+    """Serialize configuration via pickle.
+
+    Parameters
+    ----------
+    config: Struct
+        Configuration to be serialized and stored to disk.
+    config_fname: Path
+        File path to which the serialized configuration is saved.
+    """
+    with config_fname.open("wb") as fid:
+        pickle.dump(config, fid)
 
 
 def deserialize_from_pickle(exp_config_fname: Path) -> Struct:
-    with exp_config_fname.open("rb") as file:
-        exp_config = pickle.load(file)
+    with exp_config_fname.open("rb") as fid:
+        exp_config = pickle.load(fid)
     return exp_config
 
 
+def save_experiments(exp_configs: List[Struct]):
+    """Save all experiment configurations."""
+    for exp_idx, exp_config in enumerate(exp_configs):
+        exp_config.exp_dir = make_experiment_dir(exp_config, exp_idx)
+        save_experiment(exp_config)
+
+
 def save_experiment(exp_config: Struct):
+    """Save single experiment configuration by serializing the configuration via pickle and json."""
     if not hasattr(exp_config, "exp_dir"):
         raise AttributeError(
             f"Require that '{type(exp_config).__name__}' object 'exp_config' has attribute 'exp_dir'."
@@ -87,7 +141,7 @@ def save_experiment(exp_config: Struct):
             " Ensure that 'exp_dir' attribute is set."
         )
     serialize_to_pickle(exp_config, exp_config.exp_dir / "config.pkl")
-    # serialize_to_json(exp_config, exp_config.exp_dir / "config.json")
+    # TODO serialize_to_json(exp_config, exp_config.exp_dir / "config.json")
 
 
 def load_experiment(exp_config_fname: Union[Path, os.PathLike]) -> Struct:
@@ -103,7 +157,7 @@ def load_experiment(exp_config_fname: Union[Path, os.PathLike]) -> Struct:
     return exp_config
 
 
-def _extract_desc(data: Union[Struct, Callable]) -> str:
+def _extract_description(data: Union[Struct, Callable]) -> str:
     if isinstance(data, Callable):
         return data.__name__
 
@@ -116,6 +170,7 @@ def _extract_desc(data: Union[Struct, Callable]) -> str:
 
 
 def label_experiment(exp_config: Struct, exp_idx: int) -> str:
+    """Label experiment by defining a unique experiment description."""
     items_required_in_label = [
         exp_config.model,
         exp_config.train_dataset,
@@ -124,100 +179,146 @@ def label_experiment(exp_config: Struct, exp_idx: int) -> str:
         exp_config.optimizer_params,
         exp_config.losses,
     ]
-    exp_config_label = "_".join(map(_extract_desc, items_required_in_label)).lower()
+    exp_config_label = "_".join(
+        map(_extract_description, items_required_in_label)
+    ).lower()
     exp_idx_label = f"exp_idx_{exp_idx:03d}"
     return f"{exp_config_label}_{exp_idx_label}"
 
 
 def make_experiment_dir(exp_config: Struct, exp_idx: int) -> Path:
+    """Make unique experiment directory for the given experiment configuration.
+
+    Parameters
+    ----------
+    exp_config: Struct
+        Experiment configuration
+    exp_idx: int
+        Experiment idx.
+
+    Returns
+    -------
+    exp_dir: Path
+        Path to unique experiment directory.
+    """
     exp_label = label_experiment(exp_config, exp_idx)
     exp_dir = exp_config.base_dir / exp_label
     exp_dir.mkdir()
     return exp_dir
 
 
-def _validate_experiment_params(exp_params: Params):
-    raise NotImplementedError
+def get_git_revision_hash() -> str:
+    """Get current git revision hash as a string."""
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
+
+
+def validate_experiment_config(exp_config: Struct):
+    """Validate that given experiment configuration is executable.
+
+    Parameters
+    ----------
+    exp_config: Struct
+        Experiment configuration describing the learning experiment,
+        i.e. the class_obj, the class_obj parameters, the training loss, ...
+
+    Raises
+    ------
+        Raises TypeError if the given experiment configuration is not executable.
+    """
 
 
 def create_experiments(
     *,
     save_dir: os.PathLike,
-    model: Callable,
-    model_params: Params,
-    train_dataset: Callable,
+    model: Type[torch.nn.Module],
+    train_dataset: Type[torch.utils.data.Dataset],
     train_params: Params,
-    optimizers: Struct,
-    optimizer_params: Params,
-    losses: Struct,
-    train_dataset_params: Union[Params, Struct] = None,
-    callbacks: List[Callable] = None,
-    val_dataset: Callable = None,
-    run: bool = False,
+    optimizers: Union[Type[torch.optim.Optimizer], list, tuple, Struct],
+    losses: Union[FunctionType, list, tuple, Struct, Type[torch.nn.Module]],
+    callbacks: List[type] = None,
+    val_dataset: Optional[Type[torch.utils.data.Dataset]] = None,
+    model_params: Optional[Params] = None,
+    optimizer_params: Optional[Params] = None,
+    loss_params: Optional[Params] = None,
+    train_dataset_params: Optional[Params] = None,
+    val_dataset_params: Optional[Params] = None,
+    execution_strategy: str = "save",
 ):
     """Create experiments for the specified subset of the hyperparameter space.
 
     Notes
     -----
     The subset of the hyperparameter space is constructed by cartesian product of all parameters, i.e.:
-        CartesianProduct(exp_params, model_params, optimizer_params, losses)
+        CartesianProduct(train_params, model_params, optimizer_params, losses, ...)
 
     Parameters
     ----------
     save_dir: PathLike object
         Path to which the experiments are written.
-    model: Callable
+    model: Type[torch.nn.Module]
         Model class to be trained with various parameter settings.
-    model_params: Params
-        Parameters defining the model instance(s).
-    train_dataset: Callable
-        Dataset class capturing the training dataset.
+    model_params: Optional[Params]
+        Parameters defining the model.
     train_params: Params
         Parameters defining the training loop(s).
+    train_dataset: Type[torch.nn.Dataset]
+        Dataset class capturing the training dataset.
+    train_dataset_params: Optional[Params]
+        Optional parameters defining the train_dataset.
     optimizers: Struct
         Struct of optimizers.
-    optimizer_params: Params
+    optimizer_params: Optional[Params]
         Parameters defining the optimizer instance(s).
-    losses: Struct
-        Struct of loss functions.
-    train_dataset_params: Struct
-        Optional parameters defining the train_dataset.
-        If provided the train_dataset is instantiated
-        as follows train_dataset(**dataset_params),
-        instead of train_dataset().
-    callbacks: List[Callable]
+    losses: FunctionType, list, Struct, Type[torch.nn.Module]
+        Losses defines the loss criterion, which is used to train the model.
+        It can be a function, a list, a struct or a torch.nn.Module class.
+        A single function defining the loss criterion.
+        A struct defining a single complex loss criterion,
+        which might consist of multiple functions.
+        A list defining multiple different losses.
+        A single loss class of type torch.nn.Module, e.g. torch.nn.MSE.
+    loss_params: Optional[Params]
+        Optional parameters defining the losses,
+        e.g. weight values associated with the loss.
+    callbacks: list
         List of callbacks called during the model's training.
-    val_dataset: Callable
+    val_dataset: Type[torch.utils.data.Dataset]
         Dataset class capturing the validation dataset.
-    run: bool
+    val_dataset_params: Optional[Params]
+        Optional parameters defining the val_train_dataset.
+    execution_strategy: str
         Whether to run the defined experiments.
     """
+
+    def _ensure_params(_params: Params):
+        return _params if _params is not None else Params()
+
+    validate_value(
+        execution_strategy,
+        allowed_value=("save", "remote", "local"),
+        value_name="execution_strategy",
+    )
+
     base_dir = Path(save_dir) / datetime.now().strftime("%Y%m%d_%H%M%S")
     base_dir.mkdir()
 
     exp_params = Struct(
         base_dir=base_dir,
-        train_params=train_params.expand(),
+        train_params=_ensure_params(train_params).expand(),
         model=model,
-        model_params=model_params.expand(),
-        optimizers=optimizers.values(),
-        optimizer_params=optimizer_params.expand(),
+        model_params=_ensure_params(model_params).expand(),
+        optimizers=optimizers,
+        optimizer_params=_ensure_params(optimizer_params).expand(),
         train_dataset=train_dataset,
-        train_dataset_params=train_dataset_params.expand(),
-        losses=losses.values(),
-        git_rev_hash=get_git_revision_hash(),
+        train_dataset_params=_ensure_params(train_dataset_params).expand(),
+        losses=losses,
+        loss_params=_ensure_params(loss_params).expand(),
+        callbacks=[[]] if callbacks is None else [callbacks],
+        val_dataset=val_dataset,
+        val_dataset_params=_ensure_params(val_dataset_params).expand(),
+        git_rev_hash=(get_git_revision_hash(),),
     )
 
-    if callbacks is not None:
-        validate_type(callbacks, required_type=list, obj_name="callbacks")
-        exp_params.callbacks = [callbacks]
-
-    if val_dataset is not None:
-        validate_type(val_dataset, required_type=Callable, obj_name="val_dataset")
-        exp_params.val_dataset = val_dataset
-
-    for exp_idx, exp_config in enumerate(named_product(**exp_params)):
-        exp_config.exp_dir = make_experiment_dir(exp_config, exp_idx)
-        save_experiment(exp_config)
-        if run:
-            run_on_local(exp_config)
+    exp_configs = list(named_product(**exp_params))
+    save_experiments(exp_configs)
+    run_experiments(exp_configs, execution_strategy)
