@@ -78,7 +78,11 @@ def run_experiments(exp_configs: List[Struct], execution_strategy: str = "local"
         Defines whether the experiment is performed on the local machine or on a
         remote machine. Can taken on two values ("local", "remote").
     """
-    validate_value(execution_strategy, allowed_value=("local", "remote"), value_name="execution_strategy")
+    validate_value(
+        execution_strategy,
+        allowed_value=("local", "remote"),
+        value_name="execution_strategy",
+    )
 
     for exp_idx, exp_config in enumerate(exp_configs):
         exp_config = load_experiment(exp_config.exp_dir / "config.pkl")
@@ -175,7 +179,9 @@ def label_experiment(exp_config: Struct, exp_idx: int) -> str:
         exp_config.optimizer_params,
         exp_config.losses,
     ]
-    exp_config_label = "_".join(map(_extract_description, items_required_in_label)).lower()
+    exp_config_label = "_".join(
+        map(_extract_description, items_required_in_label)
+    ).lower()
     exp_idx_label = f"exp_idx_{exp_idx:03d}"
     return f"{exp_config_label}_{exp_idx_label}"
 
@@ -222,21 +228,21 @@ def validate_experiment_config(exp_config: Struct):
 
 
 def create_experiments(
-        *,
-        save_dir: os.PathLike,
-        model: Type[torch.nn.Module],
-        train_dataset: Type[torch.utils.data.Dataset],
-        train_params: Params,
-        optimizers: Union[Type[torch.optim.Optimizer], list, tuple, Struct],
-        losses: Union[FunctionType, list, tuple, Struct, Type[torch.nn.Module]],
-        callbacks: List[type] = None,
-        val_dataset: Optional[Type[torch.utils.data.Dataset]] = None,
-        model_params: Optional[Params] = None,
-        optimizer_params: Optional[Params] = None,
-        loss_params: Optional[Params] = None,
-        train_dataset_params: Optional[Params] = None,
-        val_dataset_params: Optional[Params] = None,
-        execution_strategy: str = "save",
+    *,
+    save_dir: os.PathLike,
+    model: Type[torch.nn.Module],
+    train_dataset: Type[torch.utils.data.Dataset],
+    train_params: Params,
+    optimizers: Union[Type[torch.optim.Optimizer], list, tuple, Struct],
+    losses: Union[FunctionType, list, tuple, Struct, Type[torch.nn.Module]],
+    callbacks: List[type] = None,
+    val_dataset: Optional[Type[torch.utils.data.Dataset]] = None,
+    model_params: Optional[Params] = None,
+    optimizer_params: Optional[Params] = None,
+    loss_params: Optional[Params] = None,
+    train_dataset_params: Optional[Params] = None,
+    val_dataset_params: Optional[Params] = None,
+    execution_strategy: str = "save",
 ):
     """Create experiments for the specified subset of the hyperparameter space.
 
@@ -310,7 +316,7 @@ def create_experiments(
         callbacks=[[]] if callbacks is None else [callbacks],
         val_dataset=val_dataset,
         val_dataset_params=_ensure_params(val_dataset_params).expand(),
-        git_rev_hash=get_git_revision_hash(),
+        git_rev_hash=(get_git_revision_hash(),),
     )
 
     exp_configs = list(named_product(**exp_params))
