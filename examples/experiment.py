@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import torch
-import torchvision
+from torchvision.datasets.mnist import MNIST
+from torchvision import transforms
 
 from exptorch import create_experiments, Params, Struct
 
@@ -18,20 +19,21 @@ model_params = Params(
     activation=[torch.nn.ReLU, torch.nn.Tanh],
 )
 
-losses = Struct(loss=torch.nn.CrossEntropyLoss)
+losses = [torch.nn.CrossEntropyLoss]
 
-optimizers = Struct(adam=torch.optim.Adam, sgd=torch.optim.SGD)
+optimizers = [torch.optim.Adam, torch.optim.SGD]
 optimizer_params = Params(lr=[0.001, 0.005, 0.01])
 
-train_dataset = torchvision.datasets.MNIST
+train_dataset = MNIST
 train_dataset_params = Params(
     fixed=Struct(
         root="./",
         train=True,
         download=True,
-        transform=torchvision.transforms.ToTensor(),
+        transform=transforms.ToTensor(),
     ),
 )
+
 
 if __name__ == "__main__":
     create_experiments(
@@ -44,5 +46,5 @@ if __name__ == "__main__":
         train_dataset=train_dataset,
         train_dataset_params=train_dataset_params,
         save_dir=Path("./"),
-        run=True,
+        execution_strategy="local",
     )
