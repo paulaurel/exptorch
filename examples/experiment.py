@@ -10,7 +10,9 @@ from examples.models import MLP
 
 
 config_dir = Path("./")
-train_params = Params(fixed=Struct(epochs=2, batch_size=16))
+train_params = Params(fixed=Struct(batch_size=16),
+                      epochs=[3, 10, 100],
+                      )
 
 model = MLP
 model_params = Params(

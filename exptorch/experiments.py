@@ -10,6 +10,7 @@ from collections.abc import Callable
 from torch.utils.data import DataLoader
 from typing import List, Union, Type, Optional
 
+from .trainer import Trainer
 from .containers import Struct, Params
 from .utils.constructor import construct
 from .utils.itertools import named_product
@@ -24,30 +25,21 @@ def run_on_local(config):
     config: Struct
         Experiment configuration specifying the learning experiment.
     """
-    model = construct(config.model, **config.model_params)
-    optimizer = model.configure_optimizers(config.optimizers, **config.optimizer_params)
-    model.train()
-    loss_criterion = construct(config.losses, **config.loss_params)
-    train_dataset = construct(config.train_dataset, **config.train_dataset_params)
-    train_data_loader = DataLoader(
-        train_dataset, batch_size=config.train_params.batch_size
+    trainer = Trainer(
+        model=construct(config.model, **config.model_params),
+        loss_criterion=construct(config.losses, **config.loss_params),
+        train_data_loader=DataLoader(
+            dataset=construct(config.train_dataset, **config.train_dataset_params),
+            batch_size=config.train_params.batch_size,
+        ),
+        max_epochs=config.train_params.epochs,
+        exp_dir=config.exp_dir,
+        optimizers=config.optimizers,
+        optimizer_params=config.optimizer_params,
+        callbacks=construct(config.callbacks),
     )
-    running_loss = 0.0
-    for epoch in range(config.train_params.epochs):
-        for idx, batch in enumerate(train_data_loader):
-            loss = model.training_step(batch, loss_criterion)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            running_loss += loss.item()
-
-            if idx % 1000 == 999:  # print every 2000 mini-batches
-                print(
-                    "[%d, %5d] loss: %.3f" % (epoch + 1, idx + 1, running_loss / 1000)
-                )
-                running_loss = 0.0
-
-    return model
+    trainer.fit()
+    return trainer.model
 
 
 def run_on_remote(num_workers):
@@ -93,7 +85,7 @@ def run_experiments(exp_configs: List[Struct], execution_strategy: str = "local"
             except Exception as err_msg:
                 warn(
                     f"Experiment {label_experiment(exp_config, exp_idx)} failed"
-                    f" with the following error: {err_msg}."
+                    f" with the following error: \n {err_msg}."
                 )
 
     if execution_strategy == "remote":
