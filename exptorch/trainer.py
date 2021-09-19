@@ -29,6 +29,8 @@ class TrainerState:
     status: TrainerStatus = TrainerStatus.INITIALIZING
     epoch: int = 1
     batch: int = 1
+    num_train_batches: int = None
+    num_val_batches: int = None
 
     @property
     def num_completed_epochs(self):
@@ -96,8 +98,6 @@ class Trainer:
         self._max_epochs = max_epochs
         self._device = get_device() if device is None else device
 
-        self.num_train_batches = len(train_data_loader)
-        self.num_val_batches = 0 if val_data_loader is None else len(val_data_loader)
         self.state = TrainerState()
 
         self._call_hook("on_init_end")
@@ -137,6 +137,7 @@ class Trainer:
         self.state.status = TrainerStatus.FINISHED
 
     def _run_epoch(self):
+        self._update_state_on_epoch_start()
         self._call_hook("on_epoch_start")
         for batch_idx, batch in enumerate(self._train_data_loader):
             self._run_batch(batch, batch_idx)
@@ -152,7 +153,7 @@ class Trainer:
 
     def _update_state_on_epoch_start(self):
         self.state.num_train_batches = len(self._train_data_loader)
-        self.state.num_val_batches = len(self._val_data_loader) if self._val_data_loader is not None else None
+        self.state.num_val_batches = len(self._val_data_loader) if self._val_data_loader is not None else 0
 
     def _update_state_on_batch_end(self):
         self.state.increment_batch()

@@ -21,7 +21,7 @@ class ProgressBar(Callback):
         self.main_progress_bar = self.init_train_progress_bar()
 
     def on_epoch_start(self, trainer):
-        total_num_batches = trainer.num_train_batches + trainer.num_val_batches
+        total_num_batches = trainer.state.num_train_batches + trainer.state.num_val_batches
         self.main_progress_bar.reset(total_num_batches)
         self.main_progress_bar.set_description(
             f"Epoch {trainer.state.epoch} / {trainer.max_epochs}"
