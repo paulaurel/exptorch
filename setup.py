@@ -17,7 +17,7 @@ setup(
     long_description=long_description,
     maintainer="Paul Aurel Diederichs",
     packages=find_packages(exclude=["tests"]),
-    install_requires=["torch", "numpy", "tensorboard"],
+    install_requires=["torch", "numpy", "tensorboard", "tqdm"],
     extras_require=dict(
         dev=[
             "black",
