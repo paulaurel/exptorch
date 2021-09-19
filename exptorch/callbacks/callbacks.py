@@ -5,7 +5,6 @@ import torch
 
 
 class Callback(ABC):
-
     def on_init_end(self, trainer):
         pass
 

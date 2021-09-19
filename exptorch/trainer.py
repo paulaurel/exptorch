@@ -57,10 +57,7 @@ def to_device(data, device: torch.device):
     elif isinstance(data, (torch.Tensor, torch.nn.Module)):
         return data.to(device)
     elif isinstance(data, (Struct, dict)):
-        return Struct(
-            (key, to_device(value, device))
-            for key, value in data.items()
-        )
+        return Struct((key, to_device(value, device)) for key, value in data.items())
     else:
         return data
 
@@ -74,17 +71,17 @@ class Trainer:
     _required_training_step_args = ["batch", "batch", "loss_criterion"]
 
     def __init__(
-            self,
-            model: torch.nn.Module,
-            optimizers,
-            optimizer_params: Union[Struct, dict],
-            loss_criterion: Union[torch.nn.Module, Callable, Struct],
-            train_data_loader: DataLoader,
-            max_epochs: int,
-            exp_dir: Path,
-            device: Optional[torch.device] = None,
-            callbacks: Optional[List] = None,
-            val_data_loader: Optional[DataLoader] = None,
+        self,
+        model: torch.nn.Module,
+        optimizers,
+        optimizer_params: Union[Struct, dict],
+        loss_criterion: Union[torch.nn.Module, Callable, Struct],
+        train_data_loader: DataLoader,
+        max_epochs: int,
+        exp_dir: Path,
+        device: Optional[torch.device] = None,
+        callbacks: Optional[List] = None,
+        val_data_loader: Optional[DataLoader] = None,
     ):
         self._model = model
         self._optimizers = optimizers
@@ -153,7 +150,9 @@ class Trainer:
 
     def _update_state_on_epoch_start(self):
         self.state.num_train_batches = len(self._train_data_loader)
-        self.state.num_val_batches = len(self._val_data_loader) if self._val_data_loader is not None else 0
+        self.state.num_val_batches = (
+            len(self._val_data_loader) if self._val_data_loader is not None else 0
+        )
 
     def _update_state_on_batch_end(self):
         self.state.increment_batch()
@@ -179,9 +178,13 @@ class Trainer:
 
     def _init_optimizer(self):
         if not hasattr(self._model, "configure_optimizers"):
-            raise AttributeError(f"Require that {type(self._model).__name__} has a configure_optimizers method.")
+            raise AttributeError(
+                f"Require that {type(self._model).__name__} has a configure_optimizers method."
+            )
 
-        self._optimizers = self.model.configure_optimizers(self._optimizers, **self._optimizer_params)
+        self._optimizers = self.model.configure_optimizers(
+            self._optimizers, **self._optimizer_params
+        )
         if not isinstance(self._optimizers, (list, tuple)):
             self._optimizers = [self._optimizers]
         for optimizer in self._optimizers:
@@ -195,7 +198,9 @@ class Trainer:
 
     def _build_train_kwargs(self, batch, batch_idx, opt_idx):
         self._check_train_args()
-        kwargs = dict(batch=batch, batch_idx=batch_idx, loss_criterion=self._loss_criterion)
+        kwargs = dict(
+            batch=batch, batch_idx=batch_idx, loss_criterion=self._loss_criterion
+        )
 
         if (num_opts := len(self._optimizers)) > 1:
             has_opt_idx_arg = has_arg(self.model.training_step, "optimizer_idx")
